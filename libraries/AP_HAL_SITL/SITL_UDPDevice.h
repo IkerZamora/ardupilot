@@ -1,12 +1,11 @@
-#ifndef __AP_HAL_LINUX_UDPDEVICE_UDP_H__
-#define __AP_HAL_LINUX_UDPDEVICE_UDP_H__
+#ifndef __AP_HAL_SITL_UDPDEVICE_UDP_H__
+#define __AP_HAL_SITL_UDPDEVICE_UDP_H__
 
 #include "SerialDevice.h"
 #include <AP_HAL/utility/Socket.h>
 
 class SITLUDPDevice: public SerialDevice {
 public:
-    friend class HALSITL::SITL_State;
     
     SITLUDPDevice(const char *ip, uint16_t port, bool bcast);
     virtual ~SITLUDPDevice();
