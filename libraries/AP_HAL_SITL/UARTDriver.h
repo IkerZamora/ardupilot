@@ -49,10 +49,12 @@ public:
     int16_t available();
     int16_t txspace();
     int16_t read();
+    int16_t read(uint8_t *buf, uint16_t n);
 
     /* Implementations of Print virtual methods */
     size_t write(uint8_t c);
     size_t write(const uint8_t *buffer, size_t size);
+    size_t write(const uint8_t *buffer, uint16_t n);
 
     void set_device_path(const char *path);
 

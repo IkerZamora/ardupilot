@@ -41,6 +41,8 @@
 #include "SITL_State.h"
 #include "SITL_UDPDevice.h"
 
+const AP_HAL::HAL& myhal = AP_HAL::get_HAL();
+
 using namespace HALSITL;
 
 bool SITLUARTDriver::_console;
@@ -65,7 +67,7 @@ void SITLUARTDriver::begin(uint32_t baud, uint16_t rxSpace, uint16_t txSpace)
     }
     switch (_portNumber) {
         case 0:
-            printf("----------------0----------------");
+            myhal.console->println("----------------0----------------");
             switch (_parseDevicePath(device_path)) {
                 case DEVICE_TCP:
                 {
@@ -90,14 +92,14 @@ void SITLUARTDriver::begin(uint32_t baud, uint16_t rxSpace, uint16_t txSpace)
 
 
         case 1:
-            printf("----------------1----------------");
+            myhal.console->println("----------------1----------------");
             /* gps */
             _connected = true;
             _fd = _sitlState->gps_pipe();
             break;
 
         case 2:
-            printf("----------------2----------------");
+            myhal.console->println("----------------2----------------");
             switch (_parseDevicePath(device_path)) {
                 case DEVICE_TCP:
                 {
@@ -126,14 +128,14 @@ void SITLUARTDriver::begin(uint32_t baud, uint16_t rxSpace, uint16_t txSpace)
             
 
         case 4:
-            printf("----------------4----------------");
+            myhal.console->println("----------------4----------------");
             /* gps2 */
             _connected = true;
             _fd = _sitlState->gps2_pipe();
             break;
 
         default:
-            printf("----------------default----------------");
+            myhal.console->println("----------------default----------------");
             switch (_parseDevicePath(device_path)) {
                 case DEVICE_TCP:
                 {
@@ -305,6 +307,11 @@ int16_t SITLUARTDriver::read(void)
     return -1;
 }
 
+int16_t SITLUARTDriver::read(uint8_t *buf, uint16_t n)
+{
+    return _device->read(buf, n);
+}
+
 void SITLUARTDriver::flush(void)
 {
 }
@@ -334,13 +341,18 @@ size_t SITLUARTDriver::write(const uint8_t *buffer, size_t size)
     return n;
 }
 
+size_t SITLUARTDriver::write(const uint8_t *buffer, uint16_t n)
+{
+    return _device->write(buffer, n);
+}
+
 /*
   start a UDP connection for the serial port
  */
 void SITLUARTDriver::_udp_start_connection(void)
 {
     bool bcast = (_flag && strcmp(_flag, "bcast") == 0);
-    _device = new SITLUDPDevice("127.0.0.1", uint16_t(5760), bcast);
+    _device = new SITLUDPDevice("127.0.0.1", _portNumber, bcast);
     //(_ip, _base_port, bcast);
     _connected = _device->open();
     _device->set_blocking(false);
