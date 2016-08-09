@@ -550,7 +550,7 @@ fi
 
 # If running inside of a vagrant guest, then we probably want to forward our mavlink out to the containing host OS
 if [[ $FRAME == "Gazebo" ]]; then
-    options="$options --out 127.0.0.1:14551"
+    options="$options --out udp:127.0.0.1:14551"
     # Support Vagrant on Gazebo simulation ?
 else
     if [ $USER == "vagrant" ]; then
