@@ -94,7 +94,7 @@ void SITL_State::_parse_command_line(int argc, char * const argv[])
     setvbuf(stderr, (char *)0, _IONBF, 0);
 
     _synthetic_clock_mode = false;
-    _base_port = 5760;
+    _base_port = 9760;
     _rcout_port = 5502;
     _simin_port = 5501;
     _fdm_address = "127.0.0.1";

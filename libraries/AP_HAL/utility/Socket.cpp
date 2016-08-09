@@ -26,7 +26,7 @@
  */
 SocketAPM::SocketAPM(bool _datagram) :
     SocketAPM(_datagram, 
-              socket(AF_INET, _datagram?SOCK_DGRAM:SOCK_STREAM, 0))
+              socket(AF_INET, _datagram?SOCK_DGRAM:SOCK_STREAM, IPPROTO_UDP))
 {}
 
 SocketAPM::SocketAPM(bool _datagram, int _fd) :
@@ -34,10 +34,10 @@ SocketAPM::SocketAPM(bool _datagram, int _fd) :
     fd(_fd)
 {
     fcntl(fd, F_SETFD, FD_CLOEXEC);
-    if (!datagram) {
+    /*if (!datagram) {
         int one = 1;
         setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
-    }
+    }*/
 }
 
 SocketAPM::~SocketAPM()

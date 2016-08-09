@@ -9,6 +9,8 @@
 #include <stdarg.h>
 #include "AP_HAL_SITL_Namespace.h"
 
+#include "SerialDevice.h"
+
 class HALSITL::SITLUARTDriver : public AP_HAL::UARTDriver {
 public:
     friend class HALSITL::SITL_State;
@@ -52,10 +54,13 @@ public:
     size_t write(uint8_t c);
     size_t write(const uint8_t *buffer, size_t size);
 
+    void set_device_path(const char *path);
+
     // file descriptor, exposed so SITL_State::loop_hook() can use it
     int _fd;
 
 private:
+    SerialDevice *_device = nullptr;
     uint8_t _portNumber;
     bool _connected; // true if a client has connected
     int _listen_fd;  // socket we are listening on
@@ -68,6 +73,13 @@ private:
     // IPv4 address of target for uartC
     const char *_tcp_client_addr;
 
+    uint16_t _base_port;
+    char *_ip;
+    char *_flag;
+    bool _packetise; // true if writes should try to be on mavlink boundaries
+    enum flow_control _flow_control;
+
+    void _udp_start_connection(void);
     void _tcp_start_connection(bool wait_for_connection);
     void _tcp_start_client(const char *address);
     void _check_connection(void);
@@ -87,6 +99,17 @@ private:
     static const uint16_t _max_buffer_size = 512;
 
     SITL_State *_sitlState;
+
+    enum device_type {
+        DEVICE_TCP,
+        DEVICE_UDP,
+        DEVICE_SERIAL,
+        DEVICE_UNKNOWN
+    };
+    enum device_type _parseDevicePath(const char *arg);
+
+protected:
+    const char *device_path;
 
 };
 

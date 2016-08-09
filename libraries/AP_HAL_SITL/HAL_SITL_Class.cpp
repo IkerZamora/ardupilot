@@ -20,6 +20,7 @@
 
 #include <AP_HAL_Empty/AP_HAL_Empty.h>
 #include <AP_HAL_Empty/AP_HAL_Empty_Private.h>
+#include <AP_HAL/utility/getopt_cpp.h>
 
 using namespace HALSITL;
 
@@ -70,9 +71,17 @@ void HAL_SITL::run(int argc, char * const argv[], Callbacks* callbacks) const
 {
     assert(callbacks);
 
+    const struct GetOptLong::option options[] = {
+        {"uartA", true, 0, 'A'},
+        {0, false, 0, 0}
+    };
+
+    GetOptLong gopt(argc, argv, "A", options);
+
     _sitl_state->init(argc, argv);
     scheduler->init(NULL);
     uartA->begin(115200);
+    //uartA->set_device_path(gopt.optarg);
 
     rcin->init(NULL);
     rcout->init(NULL);

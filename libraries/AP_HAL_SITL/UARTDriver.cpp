@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdarg.h>
+#include <sys/stat.h>
 #include <AP_Math/AP_Math.h>
 
 #include <errno.h>
@@ -38,12 +39,21 @@
 
 #include "UARTDriver.h"
 #include "SITL_State.h"
+#include "SITL_UDPDevice.h"
 
 using namespace HALSITL;
 
 bool SITLUARTDriver::_console;
 
 /* UARTDriver method implementations */
+
+/*
+  set the tty device to use for this UART
+ */
+void SITLUARTDriver::set_device_path(const char *path)
+{
+    device_path = path;
+}
 
 void SITLUARTDriver::begin(uint32_t baud, uint16_t rxSpace, uint16_t txSpace)
 {
@@ -54,39 +64,168 @@ void SITLUARTDriver::begin(uint32_t baud, uint16_t rxSpace, uint16_t txSpace)
         _rxSpace = rxSpace;
     }
     switch (_portNumber) {
-    case 0:
-        _tcp_start_connection(true);
-        break;
+        case 0:
+            switch (_parseDevicePath(device_path)) {
+                case DEVICE_TCP:
+                {
+                    _tcp_start_connection(false);
+                    break;
+                }
 
-    case 1:
-        /* gps */
-        _connected = true;
-        _fd = _sitlState->gps_pipe();
-        break;
+                case DEVICE_UDP:
+                {
+                    _udp_start_connection();
+                    break;
+                }
+                default:
+                {
+                    // Notify that the option is not valid and select standart input and output
+                    ::printf("Argument is not valid. Fallback to console.\n");
+                    ::printf("Launch with --help to see an example.\n");
+                    break;
+                }
+            }
+            break;
 
-    case 2:
-        if (_sitlState->get_client_address() != NULL) {
-            _tcp_start_client(_sitlState->get_client_address());
-        } else {
-            _tcp_start_connection(false);
-        }
-        break;
 
-    case 4:
-        /* gps2 */
-        _connected = true;
-        _fd = _sitlState->gps2_pipe();
-        break;
+        case 1:
+            /* gps */
+            _connected = true;
+            _fd = _sitlState->gps_pipe();
+            break;
 
-    default:
-        _tcp_start_connection(false);
-        break;
+        case 2:
+            switch (_parseDevicePath(device_path)) {
+                case DEVICE_TCP:
+                {
+                    if (_sitlState->get_client_address() != NULL) {
+                        _tcp_start_client(_sitlState->get_client_address());
+                    } else {
+                        _tcp_start_connection(false);
+                    }
+                    break;
+                }
+
+                case DEVICE_UDP:
+                {
+                    _udp_start_connection();
+                    break;
+                }
+                default:
+                {
+                    // Notify that the option is not valid and select standart input and output
+                    ::printf("Argument is not valid. Fallback to console.\n");
+                    ::printf("Launch with --help to see an example.\n");
+                    break;
+                }
+            }
+            break;
+            
+
+        case 4:
+            /* gps2 */
+            _connected = true;
+            _fd = _sitlState->gps2_pipe();
+            break;
+
+        default:
+            switch (_parseDevicePath(device_path)) {
+                case DEVICE_TCP:
+                {
+                    _tcp_start_connection(false);
+                    break;
+                }
+
+                case DEVICE_UDP:
+                {
+                    _udp_start_connection();
+                    break;
+                }
+                default:
+                {
+                    // Notify that the option is not valid and select standart input and output
+                    ::printf("Argument is not valid. Fallback to console.\n");
+                    ::printf("Launch with --help to see an example.\n");
+                    break;
+                }
+            }
+            break;
     }
 }
+
 
 void SITLUARTDriver::end()
 {
 }
+
+/*
+    Device path accepts the following syntaxes:
+        - /dev/ttyO1
+        - tcp:*:1243:wait
+        - udp:192.168.2.15:1243
+*/
+SITLUARTDriver::device_type SITLUARTDriver::_parseDevicePath(const char *arg)
+{
+    struct stat st;
+
+    if (stat(arg, &st) == 0 && S_ISCHR(st.st_mode)) {
+        return DEVICE_SERIAL;
+    } else if (strncmp(arg, "tcp:", 4) != 0 && 
+               strncmp(arg, "udp:", 4) != 0) {
+        return DEVICE_UNKNOWN;
+    }
+
+    char *devstr = strdup(arg);
+    if (devstr == NULL) {
+        return DEVICE_UNKNOWN;
+    }
+
+    char *saveptr = NULL;
+    char *protocol, *ip, *port, *flag;
+
+    protocol = strtok_r(devstr, ":", &saveptr);
+    ip = strtok_r(NULL, ":", &saveptr);
+    port = strtok_r(NULL, ":", &saveptr);
+    flag = strtok_r(NULL, ":", &saveptr);
+
+    device_type type = DEVICE_UNKNOWN;
+
+    if (ip == NULL || port == NULL) {
+        fprintf(stderr, "IP or port is set incorrectly.\n");
+        type = DEVICE_UNKNOWN;
+        goto errout;
+    }
+
+    if (_ip) {
+        free(_ip);
+        _ip = NULL;
+    }
+
+    if (_flag) {
+        free(_flag);
+        _flag = NULL;
+    }
+
+    _base_port = (uint16_t) atoi(port);
+    _ip = strdup(ip);
+
+    /* Optional flag for TCP */
+    if (flag != NULL) {
+        _flag = strdup(flag);
+    }
+
+    if (strcmp(protocol, "udp") == 0) {
+        type = DEVICE_UDP;
+    } else {
+        type = DEVICE_TCP;
+    }
+
+errout:
+
+    free(devstr);
+    return type;
+}
+
 
 int16_t SITLUARTDriver::available(void)
 {
@@ -191,6 +330,21 @@ size_t SITLUARTDriver::write(const uint8_t *buffer, size_t size)
 }
 
 /*
+  start a UDP connection for the serial port
+ */
+void SITLUARTDriver::_udp_start_connection(void)
+{
+    bool bcast = (_flag && strcmp(_flag, "bcast") == 0);
+    _device = new SITLUDPDevice("127.0.0.1", uint16_t(5760), bcast);
+    //(_ip, _base_port, bcast);
+    _connected = _device->open();
+    _device->set_blocking(false);
+
+    /* try to write on MAVLink packet boundaries if possible */
+    _packetise = true;
+}
+
+/*
   start a TCP connection for the serial port. If wait_for_connection
   is true then block until a client connects
  */
@@ -225,7 +379,7 @@ void SITLUARTDriver::_tcp_start_connection(bool wait_for_connection)
         sockaddr.sin_port = htons(_sitlState->base_port() + _portNumber);
         sockaddr.sin_family = AF_INET;
 
-        _listen_fd = socket(AF_INET, SOCK_STREAM, 0);
+        _listen_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
         if (_listen_fd == -1) {
             fprintf(stderr, "socket failed - %s\n", strerror(errno));
             exit(1);
@@ -246,11 +400,11 @@ void SITLUARTDriver::_tcp_start_connection(bool wait_for_connection)
             exit(1);
         }
 
-        ret = listen(_listen_fd, 5);
+        /*ret = listen(_listen_fd, 5);
         if (ret == -1) {
             fprintf(stderr, "listen failed - %s\n", strerror(errno));
             exit(1);
-        }
+        }*/
 
         fprintf(stderr, "Serial port %u on TCP port %u\n", _portNumber,
                 _sitlState->base_port() + _portNumber);
@@ -260,13 +414,13 @@ void SITLUARTDriver::_tcp_start_connection(bool wait_for_connection)
     if (wait_for_connection) {
         fprintf(stdout, "Waiting for connection ....\n");
         fflush(stdout);
-        _fd = accept(_listen_fd, NULL, NULL);
+        /*_fd = accept(_listen_fd, NULL, NULL);
         if (_fd == -1) {
             fprintf(stderr, "accept() error - %s", strerror(errno));
             exit(1);
-        }
+        }*/
         setsockopt(_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
-        setsockopt(_fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+        //setsockopt(_fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
         _connected = true;
     }
 }
@@ -309,7 +463,7 @@ void SITLUARTDriver::_tcp_start_client(const char *address)
 
     free(addr2);
 
-    _fd = socket(AF_INET, SOCK_STREAM, 0);
+    _fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (_fd == -1) {
         fprintf(stderr, "socket failed - %s\n", strerror(errno));
         exit(1);
@@ -327,7 +481,7 @@ void SITLUARTDriver::_tcp_start_client(const char *address)
     }
 
     setsockopt(_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
-    setsockopt(_fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+    //setsockopt(_fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
     _connected = true;
 }
 
@@ -345,7 +499,7 @@ void SITLUARTDriver::_check_connection(void)
         if (_fd != -1) {
             int one = 1;
             _connected = true;
-            setsockopt(_fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+            //setsockopt(_fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
             setsockopt(_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
             fprintf(stdout, "New connection on serial port %u\n", _portNumber);
         }
