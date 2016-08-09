@@ -80,8 +80,9 @@ void HAL_SITL::run(int argc, char * const argv[], Callbacks* callbacks) const
 
     _sitl_state->init(argc, argv);
     scheduler->init(NULL);
+    sitlUart0Driver.set_device_path(gopt.optarg);
     uartA->begin(115200);
-    //uartA->set_device_path(gopt.optarg);
+    
 
     rcin->init(NULL);
     rcout->init(NULL);

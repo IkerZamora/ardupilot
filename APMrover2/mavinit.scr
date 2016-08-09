@@ -1,2 +1,0 @@
-param load /home/erle/simulation/ardupilot/Tools/Frame_params/3DR_Rover.param
-param set SYSID_MYGSC 69

@@ -34,10 +34,10 @@ SocketAPM::SocketAPM(bool _datagram, int _fd) :
     fd(_fd)
 {
     fcntl(fd, F_SETFD, FD_CLOEXEC);
-    /*if (!datagram) {
+    if (!datagram) {
         int one = 1;
         setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
-    }*/
+    }
 }
 
 SocketAPM::~SocketAPM()

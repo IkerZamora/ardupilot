@@ -65,6 +65,7 @@ void SITLUARTDriver::begin(uint32_t baud, uint16_t rxSpace, uint16_t txSpace)
     }
     switch (_portNumber) {
         case 0:
+            printf("----------------0----------------");
             switch (_parseDevicePath(device_path)) {
                 case DEVICE_TCP:
                 {
@@ -89,12 +90,14 @@ void SITLUARTDriver::begin(uint32_t baud, uint16_t rxSpace, uint16_t txSpace)
 
 
         case 1:
+            printf("----------------1----------------");
             /* gps */
             _connected = true;
             _fd = _sitlState->gps_pipe();
             break;
 
         case 2:
+            printf("----------------2----------------");
             switch (_parseDevicePath(device_path)) {
                 case DEVICE_TCP:
                 {
@@ -123,12 +126,14 @@ void SITLUARTDriver::begin(uint32_t baud, uint16_t rxSpace, uint16_t txSpace)
             
 
         case 4:
+            printf("----------------4----------------");
             /* gps2 */
             _connected = true;
             _fd = _sitlState->gps2_pipe();
             break;
 
         default:
+            printf("----------------default----------------");
             switch (_parseDevicePath(device_path)) {
                 case DEVICE_TCP:
                 {
@@ -400,11 +405,11 @@ void SITLUARTDriver::_tcp_start_connection(bool wait_for_connection)
             exit(1);
         }
 
-        /*ret = listen(_listen_fd, 5);
+        ret = listen(_listen_fd, 5);
         if (ret == -1) {
             fprintf(stderr, "listen failed - %s\n", strerror(errno));
             exit(1);
-        }*/
+        }
 
         fprintf(stderr, "Serial port %u on TCP port %u\n", _portNumber,
                 _sitlState->base_port() + _portNumber);
@@ -414,11 +419,11 @@ void SITLUARTDriver::_tcp_start_connection(bool wait_for_connection)
     if (wait_for_connection) {
         fprintf(stdout, "Waiting for connection ....\n");
         fflush(stdout);
-        /*_fd = accept(_listen_fd, NULL, NULL);
+        _fd = accept(_listen_fd, NULL, NULL);
         if (_fd == -1) {
             fprintf(stderr, "accept() error - %s", strerror(errno));
             exit(1);
-        }*/
+        }
         setsockopt(_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
         //setsockopt(_fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
         _connected = true;

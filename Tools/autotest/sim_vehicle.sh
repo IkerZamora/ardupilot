@@ -191,11 +191,11 @@ trap kill_tasks SIGINT
 
 # setup ports for this instance
 MAVLINK_PORT="udp:127.0.0.1:"$((5760+10*$INSTANCE))
-SIMIN_PORT="127.0.0.1:"$((5502+10*$INSTANCE))
-SIMOUT_PORT="127.0.0.1:"$((5501+10*$INSTANCE))
-FG_PORT="127.0.0.1:"$((5503+10*$INSTANCE))
+SIMIN_PORT="udp:127.0.0.1:"$((5502+10*$INSTANCE))
+SIMOUT_PORT="udp:127.0.0.1:"$((5501+10*$INSTANCE))
+FG_PORT="udp:127.0.0.1:"$((5503+10*$INSTANCE))
 # Output port from ROS' MAVROS plugin:
-MAVLINK_ROS_PORT="127.0.0.1:"$((14560+10*$INSTANCE))
+MAVLINK_ROS_PORT="udp:127.0.0.1:"$((14550+10*$INSTANCE))
 
 [ -z "$VEHICLE" ] && {
     CDIR="$PWD"
@@ -447,7 +447,7 @@ if [ $START_ANTENNA_TRACKER == 1 ]; then
         make sitl-debug -j$NUM_PROCS
     }
     TRACKER_INSTANCE=1
-    TRACKER_UARTA="tcp:127.0.0.1:"$((5760+10*$TRACKER_INSTANCE))
+    TRACKER_UARTA="udp:127.0.0.1:"$((5760+10*$TRACKER_INSTANCE))
     cmd="nice /tmp/AntennaTracker.build/AntennaTracker.elf -I1 --model=tracker --home=$TRACKER_HOME"
     $autotest/run_in_terminal_window.sh "AntennaTracker" $cmd || exit 1
     popd
